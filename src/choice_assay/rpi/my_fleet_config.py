@@ -9,11 +9,11 @@ from expidite_rpi.sensors.sensor_rpicam_vid import (
     RpicamSensorCfg,
 )
 
-from choice_assay.choice_assay_pose_processor import (
+from choice_assay.rpi.choice_assay_pose_processor import (
     DEFAULT_CHOICE_ASSAY_POSE_PROCESSOR_CFG,
     ChoiceAssayPoseProcessor,
 )
-from choice_assay.choice_assay_trapcam import (
+from choice_assay.rpi.choice_assay_trapcam import (
     CA_LEFT_VIDEO_STREAM_INDEX,
     CA_RIGHT_VIDEO_STREAM_INDEX,
     DEFAULT_CHOICE_ASSAY_TRAPCAM_PROCESSOR_CFG,

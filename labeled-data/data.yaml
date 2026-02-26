@@ -1,0 +1,8 @@
+kpt_shape:
+- 7
+- 3
+names:
+  0: bee
+path: .
+train: labeled-data/autosplit_train.txt
+val: labeled-data/autosplit_val.txt

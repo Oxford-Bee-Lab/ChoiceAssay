@@ -1,0 +1,9 @@
+/test/__pycache__
+*.pyc
+/DLC_model/dlc-models/iteration-0
+/DLC_model/evaluation-results
+/DLC_model/labeled-data
+/DLC_model
+/labeled-data/old_labels
+/ml_runs
+/src/choice_assay.egg-info

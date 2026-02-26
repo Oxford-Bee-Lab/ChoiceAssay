@@ -1,0 +1,256 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "choice-assay"
+version = "0.0.9"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "expidite @ git+https://github.com/oxford-bee-ops/expidite.git",
+    "ultralytics==8.4.6",
+    "mypy",
+    "pip",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy==1.19.1",
+    "pandas-stubs==3.0.0.260204",
+    "pyinstrument==5.1.2",
+    "pyright==1.1.408",
+    "pytest==9.0.2",
+    "pytz==2025.2",
+    "ruff==0.15.2",
+    "ty==0.0.18",
+    "types-python-dateutil==2.9.0.20260124",
+    "types-pytz==2025.2.0.20251108",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "model*", "*.pt"]
+
+##############################################################################################################
+# ruff: static lint and style checker.
+##############################################################################################################
+[tool.ruff]
+line-length = 110
+indent-width = 4
+extend-exclude = ["src/choice_assay/my_choice_assay_sensor.py"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.ruff.lint]
+# Enforce all ruff rules, unless explicitly overridden below.
+select = ["ALL"]
+ignore = [
+    # Rules that we don't want to enforce.
+    "COM812",  # Little benefit.
+    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",  # Public docstring.
+    "EM101",  # No benefit.
+    "ERA",  # No benefit.
+    "FBT",  # No benefit.
+    "FIX",  # No benefit.
+    "G004",  # Prefer readability over this micro-optimization.
+    "PLC0415",  # We want this in some places.
+    "PLR2004",  # Little benefit in defining constants in many cases.
+    "PTH",  # No benefit.
+    "S101",  # No benefit.
+    "SIM102",  # Doesn't always improve readability.
+    "SIM108",  # Doesn't always improve readability.
+    "T20",  # We want this in some places.
+    "TD",  # No benefit.
+    "TRY003",  # No benefit.
+    # Rules that we should enforce, but need to fix the code first.
+    "ARG001",
+    "ARG002",
+    "BLE001",
+    "C901",
+    "D205",
+    "N",
+    "PD002",
+    "PD008",
+    "PD011",
+    "PGH003",
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "PYI034",
+    "S112",
+    "S307",
+    "S602",
+    "S603",
+    "S607",
+    "TC",
+    "TRY300",
+    "TRY301",
+]
+# Rules that we should enforce, but need to fix the code first.
+[tool.ruff.lint.per-file-ignores]
+"src/bee_ops/etl/analyses/env__screen_analyser.ipynb" = ["PLW2901"]
+"src/bee_ops/etl/etl_step2_agg.py" = ["RET504"]
+"src/bee_ops/etl/flowercam__viewer.ipynb" = ["PLW2901"]
+"src/bee_ops/etl/hive_assessor.ipynb" = ["ANN001", "B007"]
+"src/bee_ops/resources/*.py" = ["ANN201"]
+"src/bee_ops/sensors/my_device_recipes.py" = ["ANN003"]
+"src/bee_ops/sensors/processor_audio_hive_fft.py" = ["ANN201"]
+"src/bee_ops/sensors/processor_audio_hive_wav.py" = ["UP032", "PLW2901"]
+"src/bee_ops/sensors/utils/bee_imaging/bee_imaging.py" = ["B905"]
+"src/bee_ops/sensors/utils/bee_imaging/hivecam_mp4_metadata.py" = ["B905"]
+"src/bee_ops/sensors/utils/contour_processor.py" = ["PD010"]
+"src/test/conftest.py" = ["ANN001", "ANN201"]
+"src/test/rpi_trap_test.py" = ["ANN001", "ANN003"]
+"src/test/scripts.ipynb" = ["ANN001", "UP022"]
+"src/choice_assay/my_choice_assay_sensor.py" = ["PLR0911"]  # State machine naturally has many returns
+"test/**/*.py" = [
+    "A006",
+    "ANN001",
+    "ANN201",
+    "ANN202",
+    "ANN204",
+    "ARG005",
+    "B007",
+    "D415",
+    "E402",
+    "INP001",
+    "NPY002",
+    "PLR1722",
+    "PT009",
+    "SLF001",
+    "TRY400",
+]
+
+fixable = ["ALL"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+##############################################################################################################
+# mypy: static type checker
+##############################################################################################################
+[tool.mypy]
+python_version = "3.11"
+files = ["src"]
+exclude = [
+    "build",
+    "dist",
+    ".venv",
+    "venv",
+]
+pretty = true
+
+# Override defaults to be more strict.
+check_untyped_defs = true # Type-check the interior of functions without type annotations.
+disallow_any_generics = true # Prevent use of generic types that do not specify explicit type parameters.
+disallow_untyped_defs = true # Prevent functions with missing or incomplete type annotations.
+disallow_untyped_calls = true # Prevent calls to functions without type annotations from functions with them.
+ignore_missing_imports = true # Suppress error messages about imports that cannot be resolved.
+strict_equality = true # Prohibit equality checks, identity checks, and container checks between non-overlapping types.
+warn_return_any = true # Prevent returning a value with type Any from a function declared with a non-Any return type.
+warn_unreachable = true # Prevent code inferred to be unreachable or redundant.
+warn_unused_ignores = true # Prevent unneeded # type: ignore comments.
+
+# These files/modules had exceptions prior to rules being enforced. Ignore temporarily until we can fix them.
+[[tool.mypy.overrides]]
+module = [
+    "bee_ops.sensors.my_device_recipes",
+    "bee_ops.sensors.processor_audio_hive_fft",
+    "bee_ops.resources.*",
+    "test.conftest",
+    "test.hivecam_beeid_produce_test",
+    "test.rpi_trap_test",
+]
+disallow_untyped_defs = false
+[[tool.mypy.overrides]]
+module = ["bee_ops.resources.*"]
+disallow_untyped_calls = false
+[[tool.mypy.overrides]]
+module = [
+    "bee_ops.etl.utils",
+    "bee_ops.sensors.processor_audio_hive_wav",
+    "bee_ops.sensors.my_device_recipes",
+    "test.conftest",
+    "test.system_test.hivecam_system_test",
+]
+warn_return_any = false
+[[tool.mypy.overrides]]
+module = [
+    "bee_ops.bapi",
+    "bee_ops.sensors.processor_video_movement",
+    "bee_ops.controllers.splat.splat",
+    "bee_ops.sensors.processor_audio_hive_wav",
+    "bee_ops.sensors.utils.bee_imaging.bee_imaging",
+    "bee_ops.sensors.utils.bee_imaging.mark_up_video",
+    "bee_ops.sensors.processor_video_pamcam",
+    "bee_ops.sensors.processor_video_hivecam_hybrid",
+    "bee_ops.etl.common",
+    "bee_ops.etl.etl_step3_custom_reports",
+    "test.system_test.hivecam_system_test",
+    "test.system_test.exitcam_system_test",
+    "test.hivecam_test",
+    "test.hiveexitcam_test",
+    "test.exitcam_device_test",
+    "test.fleet_config_test",
+]
+disallow_any_generics = false
+[[tool.mypy.overrides]]
+module = [
+    "bee_ops.etl.etl_helper",
+    "bee_ops.sensors.processor_audio_hive_fft",
+    "bee_ops.sensors.processor_audio_hive_wav",
+    "bee_ops.sensors.processor_audio_vib_rig",
+    "bee_ops.sensors.processor_video_flowercam",
+    "bee_ops.sensors.processor_video_exitcam_beespotter",
+    "bee_ops.sensors.processor_video_exitcam_beespotter_by_frame",
+    "bee_ops.sensors.processor_video_movement",
+    "bee_ops.sensors.processor_video_pamcam",
+    "bee_ops.sensors.processor_video_hivecam_hybrid",
+    "bee_ops.sensors.processor_video_trackcam",
+    "bee_ops.sensors.sensor_who_light_trap",
+]
+warn_unused_ignores = false
+
+##############################################################################################################
+# pyright: static type checker and bug detection.
+##############################################################################################################
+[tool.pyright]
+include = ["src"]
+exclude = [
+    "**/__pycache__",
+    "src/bee_ops/setup_utils.py",
+    "src/choice_assay/my_choice_assay_sensor.py"
+]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+reportUnnecessaryComparison = "none" # Definitely want this.
+reportPossiblyUnboundVariable = "none" # Definitely want this.
+reportArgumentType = "none"
+reportAttributeAccessIssue = "none"
+reportCallIssue = "none"
+reportMissingImports = "none"
+reportMissingParameterType = "none"
+reportMissingTypeArgument = "none"
+reportMissingTypeStubs = "none"
+reportOptionalSubscript = "none"
+reportPrivateImportUsage = "none"
+reportUnknownArgumentType = "none"
+reportUnknownLambdaType = "none"
+reportUnknownMemberType = "none"
+reportUnknownParameterType = "none"
+reportUnknownVariableType = "none"
+
+##############################################################################################################
+# ty: static type checker.
+##############################################################################################################
+[tool.ty.src]
+include = ["src", "tests"]
+exclude = ["src/choice_assay/my_choice_assay_sensor.py"]
+[tool.ty.environment]
+python-version = "3.11"

@@ -177,4 +177,15 @@ INVENTORY: list[DeviceCfg] = [
             "ExperimentType": "BeeChoiceAssay",
         },
     ),
+    DeviceCfg(
+        name="ChoiceAssayRPi-16",
+        device_id="d83addbca346",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
+    ),
 ]

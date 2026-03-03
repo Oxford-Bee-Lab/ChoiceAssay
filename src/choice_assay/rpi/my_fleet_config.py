@@ -177,7 +177,6 @@ INVENTORY: list[DeviceCfg] = [
             "ExperimentType": "BeeChoiceAssay",
         },
     ),
-    ),
     DeviceCfg(
         name="ChoiceAssayRPi-16",
         device_id="d83addbca346",

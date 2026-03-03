@@ -134,7 +134,29 @@ INVENTORY: list[DeviceCfg] = [
     ),
     DeviceCfg(
         name="ChoiceAssayRPi-12",
-        device_id="2ccf675765fd",
+        device_id="d83addae96db",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
+    ),
+    DeviceCfg(
+        name="ChoiceAssayRPi-13",
+        device_id="d83addae96da",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
+    ),
+    DeviceCfg(
+        name="ChoiceAssayRPi-14",
+        device_id="d83addbca1c9",
         notes="Dual-arena choice assay camera with motion detection",
         dp_trees_create_method=create_choice_assay_device,
         wifi_clients=WIFI_CLIENTS,
@@ -143,5 +165,16 @@ INVENTORY: list[DeviceCfg] = [
             "ExperimentType": "BeeChoiceAssay",
         },
         log_level=10,
+    ),
+    DeviceCfg(
+        name="ChoiceAssayRPi-15",
+        device_id="d83addae944e",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
     ),
 ]

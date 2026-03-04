@@ -166,6 +166,61 @@ INVENTORY: list[DeviceCfg] = [
         },
     ),
     DeviceCfg(
+        name="ChoiceAssayRPi-6",
+        device_id="e45f01f84f19",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
+    ),
+    DeviceCfg(
+        name="ChoiceAssayRPi-7",
+        device_id="d83add1a1201",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
+    ),
+    DeviceCfg(
+        name="ChoiceAssayRPi-8",
+        device_id="e45f01f84f08",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
+    ),
+    DeviceCfg(
+        name="ChoiceAssayRPi-9",
+        device_id="d83add1a1288",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
+    ),
+    DeviceCfg(
+        name="ChoiceAssayRPi-10",
+        device_id="d83add1a11c5",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
+    ),
+    DeviceCfg(
         name="ChoiceAssayRPi-11",
         device_id="d83addae96de",
         notes="Dual-arena choice assay camera with motion detection",

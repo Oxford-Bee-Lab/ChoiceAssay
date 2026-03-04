@@ -122,6 +122,50 @@ def create_choice_assay_device() -> list[DPtree]:
 ###############################################################################
 INVENTORY: list[DeviceCfg] = [
     DeviceCfg(
+        name="ChoiceAssayRPi-2",
+        device_id="d83add1a11d5",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
+    ),
+    DeviceCfg(
+        name="ChoiceAssayRPi-3",
+        device_id="d83add1a12be",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
+    ),
+    DeviceCfg(
+        name="ChoiceAssayRPi-4",
+        device_id="d83add1a1270",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
+    ),
+    DeviceCfg(
+        name="ChoiceAssayRPi-5",
+        device_id="d83add1a12af",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
+    ),
+    DeviceCfg(
         name="ChoiceAssayRPi-11",
         device_id="d83addae96de",
         notes="Dual-arena choice assay camera with motion detection",

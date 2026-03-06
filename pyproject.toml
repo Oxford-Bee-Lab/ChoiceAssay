@@ -4,12 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "choice-assay"
-version = "0.0.23"
+version = "0.0.25"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "expidite @ git+https://github.com/oxford-bee-ops/expidite.git",
-    "ultralytics==8.4.6",
+    "torch==1.12.0",
+    "torchvision==0.13.0",
+    "ultralytics==8.0.20",
     "mypy",
     "pip",
 ]

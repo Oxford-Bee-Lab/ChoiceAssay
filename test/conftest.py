@@ -1,10 +1,17 @@
 import time
+import sys
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 from expidite_rpi import DeviceCfg
 from expidite_rpi.core import configuration as root_cfg
 from expidite_rpi.utils.rpi_emulator import RpiEmulator
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_PATH = PROJECT_ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
 
 # Set up logger for test execution
 test_logger = root_cfg.setup_logger("expidite")

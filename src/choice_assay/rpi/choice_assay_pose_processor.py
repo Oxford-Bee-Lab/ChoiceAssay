@@ -138,7 +138,7 @@ class ChoiceAssayPoseProcessor(DataProcessor):
             rows: list[dict] = []
 
             model = self._load_model()
-            results = model(str(video_path), stream=True)
+            results = model(str(video_path), stream=True, verbose=False)
 
             # Process the YOLO results frame by frame as they are generated
             for frame_index, result in enumerate(results):
@@ -146,7 +146,7 @@ class ChoiceAssayPoseProcessor(DataProcessor):
 
                 # Only save a row if the model produced a result for the frame.
                 # If the model fails to produce a result, we skip saving data for that frame.
-                if keypoints:
+                if keypoints is not None:
                     row = self._frame_to_row(
                         frame_index,
                         keypoints,

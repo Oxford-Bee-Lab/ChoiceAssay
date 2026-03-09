@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from expidite_rpi.core import api
 from expidite_rpi.core.device_config_objects import DeviceCfg, WifiClient
 from expidite_rpi.core.dp_tree import DPtree
@@ -83,12 +85,13 @@ def create_choice_assay_device() -> list[DPtree]:
     # width: int = 1640
     # height: int = 1232
 
+    sampling_stream = replace(RPICAM_STREAM, sample_probability=0.02)
     cfg = RpicamSensorCfg(
         sensor_type=api.SENSOR_TYPE.CAMERA,
         sensor_index=0,
         sensor_model="PiCameraModule3",
         description="Video sensor that uses rpicam-vid",
-        outputs=[RPICAM_STREAM, RPICAM_REVIEW_MODE_STREAM],
+        outputs=[sampling_stream, RPICAM_REVIEW_MODE_STREAM],
         rpicam_cmd="rpicam-vid --framerate 5 --width 1640 --height 1232 -o FILENAME -t 180000",
     )
     my_sensor = RpicamSensor(cfg)

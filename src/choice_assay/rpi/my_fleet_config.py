@@ -125,6 +125,16 @@ def create_choice_assay_device() -> list[DPtree]:
 ###############################################################################
 INVENTORY: list[DeviceCfg] = [
     DeviceCfg(
+        name="ChoiceAssayRPi-1",
+        device_id="e45f01f84f40",
+        notes="Dual-arena choice assay camera with motion detection",
+        dp_trees_create_method=create_choice_assay_device,
+        wifi_clients=WIFI_CLIENTS,
+        tags={
+            "Location": "Wytham Field Station",
+            "ExperimentType": "BeeChoiceAssay",
+        },
+    ),    DeviceCfg(
         name="ChoiceAssayRPi-2",
         device_id="d83add1a11d5",
         notes="Dual-arena choice assay camera with motion detection",

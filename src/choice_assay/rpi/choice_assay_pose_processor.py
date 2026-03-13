@@ -11,6 +11,7 @@ from expidite_rpi.core import configuration as root_cfg
 from expidite_rpi.core.dp import DataProcessor
 from expidite_rpi.core.dp_config_objects import DataProcessorCfg, Stream
 from ultralytics import YOLO
+from ultralytics.engine.results import Results
 
 logger = root_cfg.setup_logger("choice_assay")
 
@@ -26,10 +27,13 @@ CA_KEYPOINT_NAMES: list[str] = [
     "End_prob",
 ]
 
+CA_MARKED_UP_VID_DATA_TYPE_ID = "CAMARKEDUP"
+CA_MARKED_UP_VID_STREAM_INDEX: int = 1
+
 
 @dataclass
 class ChoiceAssayPoseProcessorCfg(DataProcessorCfg):
-    model_path: str | Path
+    model_path: Path
     keypoint_count: int = len(CA_KEYPOINT_NAMES)
     fps: int = 5
 
@@ -43,18 +47,30 @@ DEFAULT_CHOICE_ASSAY_POSE_PROCESSOR_CFG = ChoiceAssayPoseProcessorCfg(
             index=CA_XY_STREAM_INDEX,
             format=api.FORMAT.DF,
             fields=(
-                [f"{name}_{suffix}" for name in CA_KEYPOINT_NAMES for suffix in ["x", "y", "likelihood"]]
+                [f"{name}_{suffix}" for name in CA_KEYPOINT_NAMES for suffix in ["x", "y", "conf"]]
                 + [
                     "source_filename",
-                    "source_data_type_id",
-                    "source_stream_index",
                     "frame_index",
                     "frame_start_time",
                 ]
             ),
         ),
+        Stream(
+            description="Marked up videos with pose keypoints drawn on frames",
+            type_id=CA_MARKED_UP_VID_DATA_TYPE_ID,
+            index=CA_MARKED_UP_VID_STREAM_INDEX,
+            format=api.FORMAT.AVI,
+            cloud_container="expidite-choiceassay-markedup",
+            sample_probability=1.0,
+        ),
     ],
-    model_path=str(Path(__file__).resolve().parent.parent / "resources" / "beecam_ncnn_model"),
+    # model_path=Path(__file__).resolve().parent.parent / "resources" / "beecam_ncnn_model",
+    model_path=Path(__file__).resolve().parent.parent.parent.parent
+    / "ml_runs"
+    / "pose"
+    / "bee_pose"
+    / "weights"
+    / "best.pt",
 )
 
 
@@ -64,28 +80,25 @@ class ChoiceAssayPoseProcessor(DataProcessor):
         self.dp_config = config
 
     def _load_model(self) -> YOLO:
-        model_path = Path(self.dp_config.model_path)
+        model_path = self.dp_config.model_path
         if not model_path.exists():
             msg = f"Pose model not found at {model_path}"
             raise FileNotFoundError(msg)
 
         return YOLO(model_path)
 
-    def _select_keypoints(self, result: object, keypoint_count: int) -> np.ndarray | None:
-        keypoints = getattr(result, "keypoints", None)
-        if keypoints is None or len(keypoints) == 0:
+    def _select_keypoints(self, result: Results, keypoint_count: int) -> np.ndarray | None:
+        keypoints = result.keypoints
+        if keypoints is None:
             return None
 
-        kpt_data = keypoints.data
-        if hasattr(kpt_data, "cpu"):
-            kpt_data = kpt_data.cpu().numpy()
-
-        if kpt_data.ndim != 3:
+        kpt_data = keypoints.data.cpu().numpy()
+        if kpt_data.size == 0:
             return None
 
-        boxes = getattr(result, "boxes", None)
+        boxes = result.boxes
         if boxes is not None:
-            conf = getattr(boxes, "conf", None)
+            conf = boxes.conf
             if conf is not None and len(conf) > 0:
                 best_idx = int(conf.argmax().item())
             else:
@@ -93,13 +106,7 @@ class ChoiceAssayPoseProcessor(DataProcessor):
         else:
             best_idx = 0
 
-        selected = kpt_data[best_idx]
-        if selected.shape[0] < keypoint_count:
-            pad = np.full((keypoint_count - selected.shape[0], 3), np.nan, dtype=float)
-            selected = np.vstack([selected, pad])
-        elif selected.shape[0] > keypoint_count:
-            selected = selected[:keypoint_count]
-        return selected
+        return kpt_data[best_idx]
 
     def _frame_to_row(
         self,
@@ -107,16 +114,11 @@ class ChoiceAssayPoseProcessor(DataProcessor):
         keypoints: np.ndarray,
         source_filename: str,
         start_time: pd.Timestamp,
-        source_data_type_id: str,
-        source_stream_index: int,
     ) -> dict:
-
         frame_start_time = start_time + timedelta(seconds=frame_index / self.dp_config.fps)
 
         row = {
             "source_filename": source_filename,
-            "source_data_type_id": source_data_type_id,
-            "source_stream_index": source_stream_index,
             "frame_index": frame_index,
             "frame_start_time": frame_start_time,
         }
@@ -132,17 +134,29 @@ class ChoiceAssayPoseProcessor(DataProcessor):
         try:
             parts = file_naming.parse_record_filename(video_path)
             start_time: datetime = parts.get(api.RECORD_ID.TIMESTAMP.value, api.utc_now())
-            source_data_type_id = parts.get(api.RECORD_ID.DATA_TYPE_ID.value, "")
-            source_stream_index = int(parts.get(api.RECORD_ID.STREAM_INDEX.value, -1))
+            end_time: datetime = parts.get(api.RECORD_ID.END_TIME.value, start_time)
 
             rows: list[dict] = []
 
+            save_markup_video = self.save_sample(
+                self.get_stream(CA_MARKED_UP_VID_STREAM_INDEX).sample_probability
+            )
+            markup_dir = root_cfg.TMP_DIR / "YOLO"
+
             model = self._load_model()
-            results = model(str(video_path), stream=True, verbose=False)
+            results = model(
+                video_path,
+                stream=True,
+                verbose=True,
+                conf=0.25,
+                max_det=1,
+                save=save_markup_video,
+                save_dir=markup_dir,
+            )
 
             # Process the YOLO results frame by frame as they are generated
             for frame_index, result in enumerate(results):
-                keypoints = self._select_keypoints(result, self.dp_config.keypoint_count) if result else None
+                keypoints = self._select_keypoints(result, self.dp_config.keypoint_count)
 
                 # Only save a row if the model produced a result for the frame.
                 # If the model fails to produce a result, we skip saving data for that frame.
@@ -152,10 +166,18 @@ class ChoiceAssayPoseProcessor(DataProcessor):
                         keypoints,
                         video_path.name,
                         start_time,
-                        source_data_type_id,
-                        source_stream_index,
                     )
                     rows.append(row)
+
+            if save_markup_video:
+                marked_up_video_path = markup_dir / (video_path.stem + ".avi")
+                self.save_recording(
+                    stream_index=CA_MARKED_UP_VID_STREAM_INDEX,
+                    temporary_file=marked_up_video_path,
+                    start_time=start_time,
+                    end_time=end_time,
+                    override_sampling=api.OVERRIDE.SAVE,
+                )
 
             return pd.DataFrame(rows)
         except Exception:

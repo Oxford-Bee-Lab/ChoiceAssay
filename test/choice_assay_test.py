@@ -30,10 +30,7 @@ class Test_choice_assay:
         "test_input",
         [
             {
-                "src_vid": "left_04-12-2025_21-32-15.mp4",
-            },
-            {
-                "src_vid": "left_10_12-2025_17-07-24.mp4",
+                "src_vid": "V3_CAVIDEO_d01111111111_00_00_20260313T195514678_20260313T195604277.mp4",
             },
         ],
     )
@@ -52,12 +49,12 @@ class Test_choice_assay:
         )
 
         # Limit the RpiCore to 1 recording so we can easily validate the results
-        rpi_emulator.set_recording_cap(1, type_id="CHOICEASSAYVID")
+        rpi_emulator.set_recording_cap(1, type_id="RPICAM")
 
         # Configure RpiCore with the choice assay device
         sc = RpiCore(rpi_emulator.inventory)
         sc.start()
-        while not (rpi_emulator.recordings_cap_hit(type_id="CHOICEASSAYVID")):
+        while not (rpi_emulator.recordings_cap_hit(type_id="RPICAM")):
             # Wait for the recordings to be fed in....
             sleep(1)
         while rpi_emulator.recordings_still_to_process():
@@ -77,7 +74,6 @@ class Test_choice_assay:
         rpi_emulator.assert_records(
             "expidite-choiceassay-trapcam",
             {
-                "V3_CA_RIGHT_VIDEO_DATA_TYPE_ID_*": rpi_emulator.ONE_OR_MORE,
-                "V3_CA_LEFT_VIDEO_DATA_TYPE_ID_*": rpi_emulator.ONE_OR_MORE,
+                "V3_CAVIDEO_*": rpi_emulator.ONE_OR_MORE,
             },
         )

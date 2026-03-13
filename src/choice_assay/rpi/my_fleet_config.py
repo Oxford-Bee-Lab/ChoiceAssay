@@ -16,8 +16,7 @@ from choice_assay.rpi.choice_assay_pose_processor import (
     ChoiceAssayPoseProcessor,
 )
 from choice_assay.rpi.choice_assay_trapcam import (
-    CA_LEFT_VIDEO_STREAM_INDEX,
-    CA_RIGHT_VIDEO_STREAM_INDEX,
+    CA_VIDEO_STREAM_INDEX,
     DEFAULT_CHOICE_ASSAY_TRAPCAM_PROCESSOR_CFG,
     ChoiceAssayTrapcamProcessor,
 )
@@ -103,19 +102,14 @@ def create_choice_assay_device() -> list[DPtree]:
     )
 
     # Define the ML dataprocessor
-    pose_dp_left = ChoiceAssayPoseProcessor(
-        DEFAULT_CHOICE_ASSAY_POSE_PROCESSOR_CFG,
-        my_sensor.sensor_index,
-    )
-    pose_dp_right = ChoiceAssayPoseProcessor(
+    pose_dp = ChoiceAssayPoseProcessor(
         DEFAULT_CHOICE_ASSAY_POSE_PROCESSOR_CFG,
         my_sensor.sensor_index,
     )
 
     my_tree = DPtree(my_sensor)
     my_tree.connect((my_sensor, RPICAM_STREAM_INDEX), trapcam_dp)
-    my_tree.connect((trapcam_dp, CA_LEFT_VIDEO_STREAM_INDEX), pose_dp_left)
-    my_tree.connect((trapcam_dp, CA_RIGHT_VIDEO_STREAM_INDEX), pose_dp_right)
+    my_tree.connect((trapcam_dp, CA_VIDEO_STREAM_INDEX), pose_dp)
 
     return [my_tree]
 
@@ -134,7 +128,8 @@ INVENTORY: list[DeviceCfg] = [
             "Location": "Wytham Field Station",
             "ExperimentType": "BeeChoiceAssay",
         },
-    ),    DeviceCfg(
+    ),
+    DeviceCfg(
         name="ChoiceAssayRPi-2",
         device_id="d83add1a11d5",
         notes="Dual-arena choice assay camera with motion detection",
@@ -255,7 +250,7 @@ INVENTORY: list[DeviceCfg] = [
             "ExperimentType": "BeeChoiceAssay",
         },
     ),
-     DeviceCfg(
+    DeviceCfg(
         name="ChoiceAssayRPi-13",
         device_id="d83addbca317",
         notes="Dual-arena choice assay camera with motion detection",

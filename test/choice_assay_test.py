@@ -30,6 +30,9 @@ class Test_choice_assay:
         "test_input",
         [
             {
+                "src_vid": "V3_RPICAM_d83addbca346_00_00_20260312T175714542_20260312T180015121.mp4",
+            },
+            {
                 "src_vid": "V3_CAVIDEO_d01111111111_00_00_20260313T195514678_20260313T195604277.mp4",
             },
         ],

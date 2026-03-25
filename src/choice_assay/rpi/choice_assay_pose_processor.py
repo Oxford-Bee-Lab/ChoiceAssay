@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import ultralytics
 from expidite_rpi.core import api, file_naming
 from expidite_rpi.core import configuration as root_cfg
 from expidite_rpi.core.dp import DataProcessor
@@ -64,13 +65,7 @@ DEFAULT_CHOICE_ASSAY_POSE_PROCESSOR_CFG = ChoiceAssayPoseProcessorCfg(
             sample_probability=1.0,
         ),
     ],
-    # model_path=Path(__file__).resolve().parent.parent / "resources" / "beecam_ncnn_model",
-    model_path=Path(__file__).resolve().parent.parent.parent.parent
-    / "ml_runs"
-    / "pose"
-    / "bee_pose"
-    / "weights"
-    / "best.pt",
+    model_path=Path(__file__).resolve().parent.parent / "resources" / "best.pt",
 )
 
 
@@ -78,6 +73,51 @@ class ChoiceAssayPoseProcessor(DataProcessor):
     def __init__(self, config: ChoiceAssayPoseProcessorCfg, sensor_index: int) -> None:
         super().__init__(config, sensor_index)
         self.dp_config = config
+        self._model_diagnostics_logged = False
+
+    def _log_model_diagnostics(self, model: YOLO) -> None:
+        if self._model_diagnostics_logged:
+            return
+
+        names = getattr(model, "names", None)
+        if isinstance(names, dict):
+            name_keys = sorted(int(k) for k in names)
+            logger.info(
+                "Pose model diagnostics: ultralytics=%s model_path=%s names_count=%d names_keys=%s",
+                ultralytics.__version__,
+                self.dp_config.model_path,
+                len(names),
+                name_keys,
+            )
+        else:
+            logger.warning(
+                "Pose model diagnostics: ultralytics=%s model_path=%s names type is %s",
+                ultralytics.__version__,
+                self.dp_config.model_path,
+                type(names).__name__,
+            )
+
+        self._model_diagnostics_logged = True
+
+    def _log_first_frame_diagnostics(self, result: Results, video_path: Path) -> None:
+        boxes = result.boxes
+        if boxes is None or boxes.cls is None:
+            logger.info("Pose frame diagnostics: video=%s frame=0 detected_classes=[]", video_path)
+            return
+
+        class_ids = [int(c.item()) for c in boxes.cls]
+        unique_class_ids = sorted(set(class_ids))
+        names = getattr(result, "names", None)
+        missing_names = []
+        if isinstance(names, dict):
+            missing_names = [class_id for class_id in unique_class_ids if class_id not in names]
+
+        logger.info(
+            "Pose frame diagnostics: video=%s frame=0 detected_classes=%s missing_name_ids=%s",
+            video_path,
+            unique_class_ids,
+            missing_names,
+        )
 
     def _load_model(self) -> YOLO:
         model_path = self.dp_config.model_path
@@ -85,7 +125,11 @@ class ChoiceAssayPoseProcessor(DataProcessor):
             msg = f"Pose model not found at {model_path}"
             raise FileNotFoundError(msg)
 
-        return YOLO(model_path)
+        model = YOLO(model_path)
+
+        self._log_model_diagnostics(model)
+
+        return model
 
     def _select_keypoints(self, result: Results, keypoint_count: int) -> np.ndarray | None:
         keypoints = result.keypoints
@@ -147,27 +191,42 @@ class ChoiceAssayPoseProcessor(DataProcessor):
             results = model(
                 video_path,
                 stream=True,
-                verbose=True,
+                verbose=False,
                 conf=0.25,
                 max_det=1,
+                classes=[0],
                 save=save_markup_video,
                 save_dir=markup_dir,
             )
 
             # Process the YOLO results frame by frame as they are generated
-            for frame_index, result in enumerate(results):
-                keypoints = self._select_keypoints(result, self.dp_config.keypoint_count)
+            try:
+                for frame_index, result in enumerate(results):
+                    if frame_index == 0:
+                        self._log_first_frame_diagnostics(result, video_path)
 
-                # Only save a row if the model produced a result for the frame.
-                # If the model fails to produce a result, we skip saving data for that frame.
-                if keypoints is not None:
-                    row = self._frame_to_row(
-                        frame_index,
-                        keypoints,
-                        video_path.name,
-                        start_time,
-                    )
-                    rows.append(row)
+                    keypoints = self._select_keypoints(result, self.dp_config.keypoint_count)
+
+                    # Only save a row if the model produced a result for the frame.
+                    # If the model fails to produce a result, we skip saving data for that frame.
+                    if keypoints is not None:
+                        row = self._frame_to_row(
+                            frame_index,
+                            keypoints,
+                            video_path.name,
+                            start_time,
+                        )
+                        rows.append(row)
+            except KeyError:
+                names = getattr(model, "names", None)
+                name_keys = sorted(int(k) for k in names) if isinstance(names, dict) else []
+                logger.exception(
+                    "KeyError while iterating YOLO stream for video=%s ultralytics=%s names_keys=%s",
+                    video_path,
+                    ultralytics.__version__,
+                    name_keys,
+                )
+                raise
 
             if save_markup_video:
                 marked_up_video_path = markup_dir / (video_path.stem + ".avi")

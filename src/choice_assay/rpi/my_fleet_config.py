@@ -92,8 +92,7 @@ def create_choice_assay_device() -> list[DPtree]:
         description="Video sensor that uses rpicam-vid",
         outputs=[sampling_stream, RPICAM_REVIEW_MODE_STREAM],
         rpicam_cmd=(
-            "rpicam-vid --framerate 5 --width 1640 --height 1232 -o FILENAME -t 180000"
-            " --shutter 1000"
+            "rpicam-vid --framerate 5 --width 1640 --height 1232 -o FILENAME -t 180000 --shutter 1000"
         ),
     )
     my_sensor = RpicamSensor(cfg)

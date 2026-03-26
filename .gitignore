@@ -8,3 +8,7 @@
 /ml_runs
 /src/choice_assay.egg-info
 /output
+/ml_model/downloads
+/ml_model/ml_runs
+ml_model/yolo11s-pose.pt
+ml_model/labeled-data/bee_pose_yolo_sw_updated/labels/train.cache

@@ -80,10 +80,6 @@ WIFI_CLIENTS: list[WifiClient] = [
 def create_choice_assay_device() -> list[DPtree]:
     """Create a dual-arena choice assay camera device."""
     # Define the video sensor
-    # Camera configuration
-    # width: int = 1640
-    # height: int = 1232
-
     sampling_stream = replace(RPICAM_STREAM, sample_probability=0.02)
     cfg = RpicamSensorCfg(
         sensor_type=api.SENSOR_TYPE.CAMERA,
@@ -92,8 +88,7 @@ def create_choice_assay_device() -> list[DPtree]:
         description="Video sensor that uses rpicam-vid",
         outputs=[sampling_stream, RPICAM_REVIEW_MODE_STREAM],
         rpicam_cmd=(
-            "rpicam-vid --framerate 5 --width 1640 --height 1232 -o FILENAME -t 180000 "
-            "--exposure sport"
+            "rpicam-vid --framerate 5 --width 800 --height 608 -o FILENAME -t 180000 --exposure sport"
         ),
     )
     my_sensor = RpicamSensor(cfg)

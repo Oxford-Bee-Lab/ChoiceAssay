@@ -20,8 +20,8 @@ CA_MASK_STREAM_INDEX: int = 1
 
 
 @dataclass
-class ChoiceAssayTrapcamParams:
-    min_motion_pixels: int = 200
+class ChoiceAssayTrapcamParams(DataProcessorCfg):
+    min_motion_pixels: int = 50
     min_motion_run_frames: int = 3  # On assumption 5 fps
     grace_frames: int = 10  # Bridge a 2 second gap in motion if motion is active before and after
     blur_kernel: tuple[int, int] = (5, 5)
@@ -37,7 +37,7 @@ class ChoiceAssayTrapcamParams:
     morph_close_size: int = 15
 
 
-DEFAULT_CHOICE_ASSAY_TRAPCAM_PROCESSOR_CFG = DataProcessorCfg(
+DEFAULT_CHOICE_ASSAY_TRAPCAM_PROCESSOR_CFG = ChoiceAssayTrapcamParams(
     description="Background-subtraction trapcam processor for motion-triggered full-frame clips",
     outputs=[
         Stream(
@@ -63,7 +63,7 @@ DEFAULT_CHOICE_ASSAY_TRAPCAM_PROCESSOR_CFG = DataProcessorCfg(
 class ChoiceAssayTrapcamProcessor(DataProcessor):
     def __init__(self, config: DataProcessorCfg, sensor_index: int) -> None:
         super().__init__(config, sensor_index)
-        self.params = ChoiceAssayTrapcamParams()
+        self.params: ChoiceAssayTrapcamParams = config  # type: ignore
 
         # Initialise background subtractor for motion detection once here.
         # This allows it to maintain state across multiple video files.
@@ -115,18 +115,10 @@ class ChoiceAssayTrapcamProcessor(DataProcessor):
                 if not ok:
                     break
 
+                # Shrink the image so we can process it faster; we don't need high-res for motion detection.
+                frame = cv2.resize(frame, (frame.shape[1] // 2, frame.shape[0] // 2))
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                gray = cv2.GaussianBlur(gray, params.blur_kernel, 0)
                 fgmask = self.subtractor.apply(gray)
-                _, fgmask = cv2.threshold(fgmask, 200, 255, cv2.THRESH_BINARY)
-                fgmask = cv2.medianBlur(fgmask, 5)
-                # Morphological close: fill holes in the object silhouette so the full
-                # body is retained rather than just the leading edge.
-                close_k = cv2.getStructuringElement(
-                    cv2.MORPH_ELLIPSE, (params.morph_close_size, params.morph_close_size)
-                )
-                fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_CLOSE, close_k)
-
                 motion_score = self._motion_score(fgmask)
                 motion_rows.append({"frame_index": frame_index, "motion_score": motion_score})
 

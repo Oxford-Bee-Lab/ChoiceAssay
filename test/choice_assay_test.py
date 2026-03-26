@@ -1,17 +1,123 @@
 import logging
+from dataclasses import replace
 from pathlib import Path
 from time import sleep
 
 import pytest
-from expidite_rpi import DeviceCfg, RpiCore
+from expidite_rpi import DeviceCfg, DPtree, RpiCore, Stream, api
 from expidite_rpi import configuration as root_cfg
+from expidite_rpi.sensors.sensor_rpicam_vid import (
+    RPICAM_REVIEW_MODE_STREAM,
+    RPICAM_STREAM,
+    RPICAM_STREAM_INDEX,
+    RpicamSensor,
+    RpicamSensorCfg,
+)
 from expidite_rpi.utils.rpi_emulator import RpiEmulator, RpiTestRecording
 
-from choice_assay import my_fleet_config
+from choice_assay.rpi.choice_assay_pose_processor import (
+    CA_KEYPOINT_NAMES,
+    CA_MARKED_UP_VID_DATA_TYPE_ID,
+    CA_MARKED_UP_VID_STREAM_INDEX,
+    CA_XY_DATA_TYPE_ID,
+    CA_XY_STREAM_INDEX,
+    DEFAULT_CHOICE_ASSAY_POSE_PROCESSOR_CFG,
+    ChoiceAssayPoseProcessor,
+)
+from choice_assay.rpi.choice_assay_trapcam import (
+    CA_MASK_DATA_TYPE_ID,
+    CA_MASK_STREAM_INDEX,
+    CA_VIDEO_DATA_TYPE_ID,
+    CA_VIDEO_STREAM_INDEX,
+    ChoiceAssayTrapcamParams,
+    ChoiceAssayTrapcamProcessor,
+)
 
 logger = root_cfg.setup_logger("choice_assay", level=logging.DEBUG)
 
 root_cfg.ST_MODE = root_cfg.SOFTWARE_TEST_MODE.TESTING
+
+TRAPCAM_PROCESSOR_CFG = ChoiceAssayTrapcamParams(
+    description="Background-subtraction trapcam processor for motion-triggered full-frame clips",
+    outputs=[
+        Stream(
+            description="Trapcam motion-triggered full-frame video",
+            type_id=CA_VIDEO_DATA_TYPE_ID,
+            index=CA_VIDEO_STREAM_INDEX,
+            format=api.FORMAT.MP4,
+            cloud_container="expidite-choiceassay-trapcam",
+            sample_probability="1.0",
+        ),
+        Stream(
+            description="Trapcam motion mask",
+            type_id=CA_MASK_DATA_TYPE_ID,
+            index=CA_MASK_STREAM_INDEX,
+            format=api.FORMAT.MP4,
+            cloud_container="expidite-choiceassay-mask",
+            sample_probability="1.0",
+        ),
+    ],
+)
+
+outputs=[
+    Stream(
+        description="Pose keypoints per frame for choice assay clips",
+        type_id=CA_XY_DATA_TYPE_ID,
+        index=CA_XY_STREAM_INDEX,
+        format=api.FORMAT.DF,
+        fields=(
+            [f"{name}_{suffix}" for name in CA_KEYPOINT_NAMES for suffix in ["x", "y", "conf"]]
+            + [
+                "source_filename",
+                "frame_index",
+                "frame_start_time",
+            ]
+        ),
+    ),
+    Stream(
+        description="Marked up videos with pose keypoints drawn on frames",
+        type_id=CA_MARKED_UP_VID_DATA_TYPE_ID,
+        index=CA_MARKED_UP_VID_STREAM_INDEX,
+        format=api.FORMAT.AVI,
+        cloud_container="expidite-choiceassay-markedup",
+        sample_probability=1.0,
+    ),
+]
+CHOICE_ASSAY_POSE_PROCESSOR_CFG = replace(DEFAULT_CHOICE_ASSAY_POSE_PROCESSOR_CFG, outputs=outputs)
+
+def create_choice_assay_device() -> list[DPtree]:
+    """Create a dual-arena choice assay camera device."""
+    # Define the video sensor
+    sampling_stream = replace(RPICAM_STREAM, sample_probability=0.02)
+    cfg = RpicamSensorCfg(
+        sensor_type=api.SENSOR_TYPE.CAMERA,
+        sensor_index=0,
+        sensor_model="PiCameraModule3",
+        description="Video sensor that uses rpicam-vid",
+        outputs=[sampling_stream, RPICAM_REVIEW_MODE_STREAM],
+        rpicam_cmd=(
+            "rpicam-vid --framerate 5 --width 800 --height 608 -o FILENAME -t 180000 --exposure sport"
+        ),
+    )
+    my_sensor = RpicamSensor(cfg)
+
+    # Define the Trapcam dataprocessor
+    trapcam_dp = ChoiceAssayTrapcamProcessor(
+        TRAPCAM_PROCESSOR_CFG,
+        my_sensor.sensor_index,
+    )
+
+    # Define the ML dataprocessor
+    pose_dp = ChoiceAssayPoseProcessor(
+        CHOICE_ASSAY_POSE_PROCESSOR_CFG,
+        my_sensor.sensor_index,
+    )
+
+    my_tree = DPtree(my_sensor)
+    my_tree.connect((my_sensor, RPICAM_STREAM_INDEX), trapcam_dp)
+    my_tree.connect((trapcam_dp, CA_VIDEO_STREAM_INDEX), pose_dp)
+
+    return [my_tree]
 
 
 class Test_choice_assay:
@@ -22,7 +128,7 @@ class Test_choice_assay:
                 name="Alex",
                 device_id="d01111111111",  # This is the DUMMY MAC address for windows
                 notes="Testing choice assay device",
-                dp_trees_create_method=my_fleet_config.create_choice_assay_device,
+                dp_trees_create_method=create_choice_assay_device,
             ),
         ]
 

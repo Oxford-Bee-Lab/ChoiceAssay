@@ -62,7 +62,7 @@ DEFAULT_CHOICE_ASSAY_POSE_PROCESSOR_CFG = ChoiceAssayPoseProcessorCfg(
             index=CA_MARKED_UP_VID_STREAM_INDEX,
             format=api.FORMAT.AVI,
             cloud_container="expidite-choiceassay-markedup",
-            sample_probability=1.0,
+            sample_probability=0.02,
         ),
     ],
     model_path=Path(__file__).resolve().parent.parent / "resources" / "best.pt",

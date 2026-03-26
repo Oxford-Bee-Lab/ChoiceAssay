@@ -54,7 +54,7 @@ DEFAULT_CHOICE_ASSAY_TRAPCAM_PROCESSOR_CFG = DataProcessorCfg(
             index=CA_MASK_STREAM_INDEX,
             format=api.FORMAT.MP4,
             cloud_container="expidite-choiceassay-mask",
-            sample_probability="1.0",
+            sample_probability="0.02",
         ),
     ],
 )

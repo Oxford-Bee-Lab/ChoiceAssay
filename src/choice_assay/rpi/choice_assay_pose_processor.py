@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import torch
 import ultralytics
 from expidite_rpi.core import api, file_naming
 from expidite_rpi.core import configuration as root_cfg
@@ -133,8 +134,11 @@ class ChoiceAssayPoseProcessor(DataProcessor):
 
     def _select_keypoints(self, result: Results, keypoint_count: int) -> np.ndarray | None:
         keypoints = result.keypoints
-        if keypoints is None:
+        if keypoints is None or keypoints.data is None:
             return None
+        assert isinstance(keypoints.data, torch.Tensor), (
+            f"Expected keypoints.data to be a torch.Tensor, got {type(keypoints.data)}"
+        )
 
         kpt_data = keypoints.data.cpu().numpy()
         if kpt_data.size == 0:

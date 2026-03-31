@@ -59,7 +59,7 @@ TRAPCAM_PROCESSOR_CFG = ChoiceAssayTrapcamParams(
     ],
 )
 
-outputs=[
+outputs = [
     Stream(
         description="Pose keypoints per frame for choice assay clips",
         type_id=CA_XY_DATA_TYPE_ID,
@@ -84,6 +84,7 @@ outputs=[
     ),
 ]
 CHOICE_ASSAY_POSE_PROCESSOR_CFG = replace(DEFAULT_CHOICE_ASSAY_POSE_PROCESSOR_CFG, outputs=outputs)
+
 
 def create_choice_assay_device() -> list[DPtree]:
     """Create a dual-arena choice assay camera device."""

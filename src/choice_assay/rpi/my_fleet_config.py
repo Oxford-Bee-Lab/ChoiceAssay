@@ -77,19 +77,22 @@ WIFI_CLIENTS: list[WifiClient] = [
 #   - ChoiceAssayTrap video if ML detects anything
 #   - Aggregate to final mid-proboscis visible seconds
 #################################################################################
-def create_choice_assay_device() -> list[DPtree]:
+def create_choice_assay_device(rpi4: bool = False) -> list[DPtree]:
     """Create a dual-arena choice assay camera device."""
     # Define the video sensor
+    rpicam_cmd_v4 = (
+        "rpicam-vid --framerate 5 --width 800 --height 608 -o FILENAME -t 180000 --exposure sport"
+        " --codec libav --libav-format mp4"
+    )
+    rpicam_cmd_v5 = "rpicam-vid --framerate 5 --width 800 --height 608 -o FILENAME -t 180000 --exposure sport"
     sampling_stream = replace(RPICAM_STREAM, sample_probability=0.02)
     cfg = RpicamSensorCfg(
         sensor_type=api.SENSOR_TYPE.CAMERA,
         sensor_index=0,
-        sensor_model="PiCameraModule3",
+        sensor_model="PiCameraModule3" if rpi4 else "PiCameraModule2",
         description="Video sensor that uses rpicam-vid",
         outputs=[sampling_stream, RPICAM_REVIEW_MODE_STREAM],
-        rpicam_cmd=(
-            "rpicam-vid --framerate 5 --width 800 --height 608 -o FILENAME -t 180000 --exposure sport"
-        ),
+        rpicam_cmd=rpicam_cmd_v4 if rpi4 else rpicam_cmd_v5,
     )
     my_sensor = RpicamSensor(cfg)
 
@@ -121,6 +124,7 @@ INVENTORY: list[DeviceCfg] = [
         device_id="e45f01f84f40",
         notes="Dual-arena choice assay camera with motion detection",
         dp_trees_create_method=create_choice_assay_device,
+        dp_trees_create_kwargs={"rpi4": True},
         wifi_clients=WIFI_CLIENTS,
         tags={
             "Location": "Wytham Field Station",
@@ -132,6 +136,7 @@ INVENTORY: list[DeviceCfg] = [
         device_id="d83add1a11d5",
         notes="Dual-arena choice assay camera with motion detection",
         dp_trees_create_method=create_choice_assay_device,
+        dp_trees_create_kwargs={"rpi4": True},
         wifi_clients=WIFI_CLIENTS,
         tags={
             "Location": "Wytham Field Station",
@@ -143,6 +148,7 @@ INVENTORY: list[DeviceCfg] = [
         device_id="d83add1a12be",
         notes="Dual-arena choice assay camera with motion detection",
         dp_trees_create_method=create_choice_assay_device,
+        dp_trees_create_kwargs={"rpi4": True},
         wifi_clients=WIFI_CLIENTS,
         tags={
             "Location": "Wytham Field Station",
@@ -154,6 +160,7 @@ INVENTORY: list[DeviceCfg] = [
         device_id="d83add1a1270",
         notes="Dual-arena choice assay camera with motion detection",
         dp_trees_create_method=create_choice_assay_device,
+        dp_trees_create_kwargs={"rpi4": True},
         wifi_clients=WIFI_CLIENTS,
         tags={
             "Location": "Wytham Field Station",
@@ -165,6 +172,7 @@ INVENTORY: list[DeviceCfg] = [
         device_id="d83add1a12af",
         notes="Dual-arena choice assay camera with motion detection",
         dp_trees_create_method=create_choice_assay_device,
+        dp_trees_create_kwargs={"rpi4": True},
         wifi_clients=WIFI_CLIENTS,
         tags={
             "Location": "Wytham Field Station",
@@ -176,6 +184,7 @@ INVENTORY: list[DeviceCfg] = [
         device_id="e45f01f84f19",
         notes="Dual-arena choice assay camera with motion detection",
         dp_trees_create_method=create_choice_assay_device,
+        dp_trees_create_kwargs={"rpi4": True},
         wifi_clients=WIFI_CLIENTS,
         tags={
             "Location": "Wytham Field Station",
@@ -187,6 +196,7 @@ INVENTORY: list[DeviceCfg] = [
         device_id="d83add1a1201",
         notes="Dual-arena choice assay camera with motion detection",
         dp_trees_create_method=create_choice_assay_device,
+        dp_trees_create_kwargs={"rpi4": True},
         wifi_clients=WIFI_CLIENTS,
         tags={
             "Location": "Wytham Field Station",
@@ -198,6 +208,7 @@ INVENTORY: list[DeviceCfg] = [
         device_id="e45f01f84f08",
         notes="Dual-arena choice assay camera with motion detection",
         dp_trees_create_method=create_choice_assay_device,
+        dp_trees_create_kwargs={"rpi4": True},
         wifi_clients=WIFI_CLIENTS,
         tags={
             "Location": "Wytham Field Station",
@@ -209,6 +220,7 @@ INVENTORY: list[DeviceCfg] = [
         device_id="d83add1a1288",
         notes="Dual-arena choice assay camera with motion detection",
         dp_trees_create_method=create_choice_assay_device,
+        dp_trees_create_kwargs={"rpi4": True},
         wifi_clients=WIFI_CLIENTS,
         tags={
             "Location": "Wytham Field Station",
@@ -220,6 +232,7 @@ INVENTORY: list[DeviceCfg] = [
         device_id="d83add1a11c5",
         notes="Dual-arena choice assay camera with motion detection",
         dp_trees_create_method=create_choice_assay_device,
+        dp_trees_create_kwargs={"rpi4": True},
         wifi_clients=WIFI_CLIENTS,
         tags={
             "Location": "Wytham Field Station",

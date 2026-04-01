@@ -23,7 +23,8 @@ CA_MASK_STREAM_INDEX: int = 1
 class ChoiceAssayTrapcamParams(DataProcessorCfg):
     min_motion_pixels: int = 50
     min_motion_run_frames: int = 3  # On assumption 5 fps
-    grace_frames: int = 10  # Bridge a 2 second gap in motion if motion is active before and after
+    pre_activity_frames: int = 10  # Include ~2 seconds before detected motion (at 5 fps)
+    post_activity_frames: int = 10  # Include ~2 seconds after detected motion (at 5 fps)
     blur_kernel: tuple[int, int] = (5, 5)
     save_mask_video: bool = True  # When True, write a full-length foreground mask video alongside each input
     # Background subtraction tuning
@@ -159,14 +160,8 @@ class ChoiceAssayTrapcamProcessor(DataProcessor):
         run_lengths = motion_df_cleaned.groupby(active_runs, sort=False)["frame_index"].transform("size")
         stable_active = raw_active & (run_lengths >= params.min_motion_run_frames)
 
-        # 2) Bridge short inactive gaps up to grace_frames only when motion exists before and after the gap.
-        active_or_nan = pd.Series(np.where(stable_active, 1.0, np.nan), index=motion_df_cleaned.index)
-        forward_filled = active_or_nan.ffill(limit=params.grace_frames)
-        backward_filled = active_or_nan.bfill(limit=params.grace_frames)
-        clean_active = (forward_filled == 1.0) & (backward_filled == 1.0)
-
-        # 3) Convert cleaned activity labels into contiguous periods.
-        active_mask = clean_active
+        # 2) Convert stable activity labels into contiguous periods.
+        active_mask = stable_active
         if not active_mask.any():
             return []
 
@@ -179,7 +174,28 @@ class ChoiceAssayTrapcamProcessor(DataProcessor):
             .reset_index(drop=True)
         )
 
-        return periods_df.to_dict("records")
+        # 3) Expand each period to include configurable lead-in and tail time.
+        total_frames = int(motion_df_cleaned["frame_index"].max())
+        periods_df["start_frame"] = (periods_df["start_frame"] - params.pre_activity_frames).clip(lower=0)
+        periods_df["end_frame"] = (periods_df["end_frame"] + params.post_activity_frames).clip(upper=total_frames)
+
+        # 4) Merge any periods that overlap (or touch) after expansion.
+        merged_periods: list[dict[str, int]] = []
+        for period in periods_df.to_dict("records"):
+            start_frame = int(period["start_frame"])
+            end_frame = int(period["end_frame"])
+
+            if not merged_periods:
+                merged_periods.append({"start_frame": start_frame, "end_frame": end_frame})
+                continue
+
+            last_period = merged_periods[-1]
+            if start_frame <= (last_period["end_frame"] + 1):
+                last_period["end_frame"] = max(last_period["end_frame"], end_frame)
+            else:
+                merged_periods.append({"start_frame": start_frame, "end_frame": end_frame})
+
+        return merged_periods
 
     def _write_period_clips(
         self,

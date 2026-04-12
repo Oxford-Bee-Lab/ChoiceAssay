@@ -18,6 +18,9 @@ CA_VIDEO_STREAM_INDEX: int = 0
 CA_MASK_DATA_TYPE_ID = "CAMASK"
 CA_MASK_STREAM_INDEX: int = 1
 
+CA_IMAGES_DATA_TYPE_ID = "CAIMAGES"
+CA_IMAGES_STREAM_INDEX: int = 2
+
 
 @dataclass
 class ChoiceAssayTrapcamParams(DataProcessorCfg):
@@ -26,7 +29,7 @@ class ChoiceAssayTrapcamParams(DataProcessorCfg):
     pre_activity_frames: int = 10  # Include ~2 seconds before detected motion (at 5 fps)
     post_activity_frames: int = 10  # Include ~2 seconds after detected motion (at 5 fps)
     blur_kernel: tuple[int, int] = (5, 5)
-    save_mask_video: bool = True  # When True, write a full-length foreground mask video alongside each input
+    save_mask_video: bool = False  # When True, write a full-length foreground mask video alongside each input
     # Background subtraction tuning
     # history: number of frames used to build the background model (longer = slower adaptation)
     bg_history: int = 500
@@ -57,6 +60,14 @@ DEFAULT_CHOICE_ASSAY_TRAPCAM_PROCESSOR_CFG = ChoiceAssayTrapcamParams(
             cloud_container="expidite-choiceassay-mask",
             sample_probability="0.02",
         ),
+        Stream(
+            description="Sample images from the first frame after a restart",
+            type_id=CA_IMAGES_DATA_TYPE_ID,
+            index=CA_IMAGES_STREAM_INDEX,
+            format=api.FORMAT.JPG,
+            cloud_container="expidite-choiceassay-images",
+            sample_probability="1.0",
+        ),
     ],
 )
 
@@ -76,6 +87,8 @@ class ChoiceAssayTrapcamProcessor(DataProcessor):
             varThreshold=self.params.bg_var_threshold,
             detectShadows=False,
         )
+        # To track whether we've saved an image from the first frame after a restart
+        self.first_frame_image_saved = False
 
     def _motion_score(
         self,
@@ -177,7 +190,9 @@ class ChoiceAssayTrapcamProcessor(DataProcessor):
         # 3) Expand each period to include configurable lead-in and tail time.
         total_frames = int(motion_df_cleaned["frame_index"].max())
         periods_df["start_frame"] = (periods_df["start_frame"] - params.pre_activity_frames).clip(lower=0)
-        periods_df["end_frame"] = (periods_df["end_frame"] + params.post_activity_frames).clip(upper=total_frames)
+        periods_df["end_frame"] = (periods_df["end_frame"] + params.post_activity_frames).clip(
+            upper=total_frames
+        )
 
         # 4) Merge any periods that overlap (or touch) after expansion.
         merged_periods: list[dict[str, int]] = []
@@ -261,8 +276,33 @@ class ChoiceAssayTrapcamProcessor(DataProcessor):
                     writer.release()
                 capture.release()
 
+    def _save_first_frame_image(self, video_path: Path) -> None:
+        """Save an image from the first frame of the first video we process after a restart."""
+        try:
+            capture = cv2.VideoCapture(str(video_path))
+            if capture.isOpened():
+                ok, frame = capture.read()
+                if ok and frame.ndim == 3 and frame.size > 0:
+                    image_output_path = file_naming.get_temporary_filename(api.FORMAT.JPG)
+                    cv2.imwrite(str(image_output_path), frame)
+                    self.save_recording(
+                        stream_index=CA_IMAGES_STREAM_INDEX,
+                        temporary_file=image_output_path,
+                        start_time=api.utc_now(),
+                        end_time=api.utc_now(),
+                    )
+                    logger.info(f"Trapcam saved first-frame image from {video_path.name}")
+                    self.first_frame_image_saved = True
+                capture.release()
+        except Exception:
+            logger.exception(f"Failed to save first-frame image from {video_path.name}")
+
     def _process_video_file(self, video_path: Path) -> None:
         """Run two-pass trapcam analysis then write full-frame clips from filtered periods."""
+        # Save an image from the first frame of the first video we process after a restart
+        if not self.first_frame_image_saved:
+            self._save_first_frame_image(video_path)
+
         motion_df, fps, mask_path = self._extract_motion_data(video_path)
         if motion_df.empty:
             logger.info(f"No motion detected in: {video_path.name}")

@@ -85,7 +85,7 @@ def create_choice_assay_device(rpi4: bool = False) -> list[DPtree]:
         " --codec libav --libav-format mp4"
     )
     rpicam_cmd_v5 = "rpicam-vid --framerate 5 --width 800 --height 608 -o FILENAME -t 180000 --exposure sport"
-    sampling_stream = replace(RPICAM_STREAM, sample_probability=0.02)
+    sampling_stream = replace(RPICAM_STREAM, sample_probability=0.0)
     cfg = RpicamSensorCfg(
         sensor_type=api.SENSOR_TYPE.CAMERA,
         sensor_index=0,

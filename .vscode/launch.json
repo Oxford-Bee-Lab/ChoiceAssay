@@ -12,5 +12,16 @@
           "unittest"
       ]
     },
+    {
+      "name": "Trapcam",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+          "-s",
+          "-k",
+          "trapcam"
+      ]
+    },
    ]
 }

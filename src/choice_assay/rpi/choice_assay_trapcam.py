@@ -25,20 +25,13 @@ CA_IMAGES_STREAM_INDEX: int = 2
 @dataclass
 class ChoiceAssayTrapcamParams(DataProcessorCfg):
     min_motion_pixels: int = 50
-    min_motion_run_frames: int = 3  # On assumption 5 fps
+    min_motion_run_frames: int = 2  # Minimum consecutive frames of motion to count as a valid period
     pre_activity_frames: int = 10  # Include ~2 seconds before detected motion (at 5 fps)
     post_activity_frames: int = 10  # Include ~2 seconds after detected motion (at 5 fps)
-    blur_kernel: tuple[int, int] = (5, 5)
     save_mask_video: bool = False  # When True, write a full-length foreground mask video alongside each input
     # Background subtraction tuning
-    # history: number of frames used to build the background model (longer = slower adaptation)
-    bg_history: int = 500
-    # var_threshold: Mahalanobis distance a pixel must exceed to be called foreground.
-    # Higher values keep slow-moving / briefly-stationary objects foreground longer.
-    bg_var_threshold: float = 64.0
-    # morph_close_size: kernel size for morphological closing applied after threshold+blur.
-    # Fills internal holes in the detected silhouette so the whole object body is retained.
-    morph_close_size: int = 15
+    bg_history: int = 400
+    bg_var_threshold: float = 100.0
 
 
 DEFAULT_CHOICE_ASSAY_TRAPCAM_PROCESSOR_CFG = ChoiceAssayTrapcamParams(
@@ -82,9 +75,9 @@ class ChoiceAssayTrapcamProcessor(DataProcessor):
         # detectShadows=False: avoids misclassifying the body of a slow/stationary object as shadow
         # (shadow pixels are labelled 127 and would be stripped by our >200 threshold anyway, but
         # shadow detection causes interior pixels to be suppressed before they reach the threshold).
-        self.subtractor = cv2.createBackgroundSubtractorMOG2(
+        self.subtractor = cv2.createBackgroundSubtractorKNN(
             history=self.params.bg_history,
-            varThreshold=self.params.bg_var_threshold,
+            dist2Threshold=self.params.bg_var_threshold,
             detectShadows=False,
         )
         # To track whether we've saved an image from the first frame after a restart
@@ -134,7 +127,9 @@ class ChoiceAssayTrapcamProcessor(DataProcessor):
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 fgmask = self.subtractor.apply(gray)
                 motion_score = self._motion_score(fgmask)
-                motion_rows.append({"frame_index": frame_index, "motion_score": motion_score})
+                # Ignore the first 4 frames which are often very noisy as the background model initializes
+                if frame_index >= 4:
+                    motion_rows.append({"frame_index": frame_index, "motion_score": motion_score})
 
                 if params.save_mask_video:
                     if mask_writer is None:
@@ -143,7 +138,8 @@ class ChoiceAssayTrapcamProcessor(DataProcessor):
                         mask_writer = self._build_writer(fps, (w, h), mask_output_path)
                     mask_frame = cv2.cvtColor(fgmask, cv2.COLOR_GRAY2BGR)
                     motion_detected = motion_score >= params.min_motion_pixels
-                    label = f"Frame {frame_index}  Motion: {'YES' if motion_detected else 'no'}"
+                    label = f"Frame {frame_index}  Motion: {'YES' if motion_detected else 'no '} "
+                    label += f"Score: {motion_score}"
                     text_color = (255, 220, 120) if motion_detected else (0, 255, 0)
                     cv2.putText(
                         mask_frame, label, (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.7, text_color, 2, cv2.LINE_AA

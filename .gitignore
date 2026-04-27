@@ -12,3 +12,5 @@
 /ml_model/ml_runs
 ml_model/yolo11s-pose.pt
 ml_model/labeled-data/bee_pose_yolo_sw_updated/labels/train.cache
+/ml_model/downloadsOld
+/ml_model/april_images

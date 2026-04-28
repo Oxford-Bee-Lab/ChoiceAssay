@@ -1,30 +1,30 @@
-description: Ultralytics YOLOv8n-pose model trained on c:\Users\bee-ops\code\Choice-assay\labeled-data\data.yaml
+description: Ultralytics YOLO11s-pose model trained on c:\Users\bee-ops\code\ml_datasets\ChoiceAssay\enhanced_data.yaml
 author: Ultralytics
-date: '2026-02-25T13:16:37.979876'
-version: 8.4.6
+date: '2026-04-28T08:30:28.361335'
+version: 8.4.30
 license: AGPL-3.0 License (https://ultralytics.com/license)
 docs: https://docs.ultralytics.com
 stride: 32
 task: pose
 batch: 1
 imgsz:
-- 448
-- 448
+- 416
+- 416
 names:
   0: bee
 args:
   batch: 1
   half: false
 channels: 3
+end2end: false
 kpt_shape:
 - 7
 - 3
 kpt_names:
-  0:
-  - '0'
-  - '1'
-  - '2'
-  - '3'
-  - '4'
-  - '5'
-  - '6'
+  0: L_antenna
+  1: R_antenna
+  2: L_mandible
+  3: R_mandible
+  4: Top_prob
+  5: Tube_prob
+  6: End_prob

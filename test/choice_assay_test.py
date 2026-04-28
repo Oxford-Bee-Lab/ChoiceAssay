@@ -25,6 +25,8 @@ from choice_assay.rpi.choice_assay_pose_processor import (
     ChoiceAssayPoseProcessor,
 )
 from choice_assay.rpi.choice_assay_trapcam import (
+    CA_IMAGES_DATA_TYPE_ID,
+    CA_IMAGES_STREAM_INDEX,
     CA_MASK_DATA_TYPE_ID,
     CA_MASK_STREAM_INDEX,
     CA_VIDEO_DATA_TYPE_ID,
@@ -54,6 +56,14 @@ TRAPCAM_PROCESSOR_CFG = ChoiceAssayTrapcamParams(
             index=CA_MASK_STREAM_INDEX,
             format=api.FORMAT.MP4,
             cloud_container="expidite-choiceassay-mask",
+            sample_probability="1.0",
+        ),
+        Stream(
+            description="Sample images from the first frame after a restart",
+            type_id=CA_IMAGES_DATA_TYPE_ID,
+            index=CA_IMAGES_STREAM_INDEX,
+            format=api.FORMAT.JPG,
+            cloud_container="expidite-choiceassay-images",
             sample_probability="1.0",
         ),
     ],

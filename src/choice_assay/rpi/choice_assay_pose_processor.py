@@ -17,6 +17,9 @@ from ultralytics.engine.results import Results
 
 logger = root_cfg.setup_logger("choice_assay")
 
+BEE_CLASS_ID = 0
+TUBES_CLASS_ID = 1
+
 CA_XY_DATA_TYPE_ID = "CAPOSE"
 CA_XY_STREAM_INDEX: int = 0
 CA_KEYPOINT_NAMES: list[str] = [
@@ -27,7 +30,10 @@ CA_KEYPOINT_NAMES: list[str] = [
     "Top_prob",
     "Tube_prob",
     "End_prob",
+    "L_tube",
+    "R_tube",
 ]
+KEYPOINT_COUNT = len(CA_KEYPOINT_NAMES)
 
 CA_MARKED_UP_VID_DATA_TYPE_ID = "CAMARKEDUP"
 CA_MARKED_UP_VID_STREAM_INDEX: int = 1
@@ -36,7 +42,6 @@ CA_MARKED_UP_VID_STREAM_INDEX: int = 1
 @dataclass
 class ChoiceAssayPoseProcessorCfg(DataProcessorCfg):
     model_path: Path
-    keypoint_count: int = len(CA_KEYPOINT_NAMES)
     fps: int = 5
 
 
@@ -132,7 +137,13 @@ class ChoiceAssayPoseProcessor(DataProcessor):
 
         return model
 
-    def _select_keypoints(self, result: Results, keypoint_count: int) -> np.ndarray | None:
+    def _select_keypoints(self, result: Results) -> np.ndarray | None:
+        """ Selects the keypoints from the YOLO result.
+        We expect 0 or 1 bee detections (class 0) per frame, and
+        usually 1 tubes detection (class 1) per frame.
+        We want to select the highest-confidence detection for each class in case we get duplicate detections.
+        The bee data is keypoints 0-6 and the tube data is keypoints 7-8, so we need to combine the detections
+        into a single data structure for the output."""
         keypoints = result.keypoints
         if keypoints is None or keypoints.data is None:
             return None
@@ -145,16 +156,39 @@ class ChoiceAssayPoseProcessor(DataProcessor):
             return None
 
         boxes = result.boxes
-        if boxes is not None:
-            conf = boxes.conf
-            if conf is not None and len(conf) > 0:
-                best_idx = int(conf.argmax().item())
-            else:
-                best_idx = 0
-        else:
-            best_idx = 0
+        if boxes is None or boxes.cls is None or boxes.conf is None:
+            return None
 
-        return kpt_data[best_idx]
+        cls = boxes.cls.cpu().numpy().astype(int)
+        conf = boxes.conf.cpu().numpy()
+
+        # Output is always the full keypoint layout expected by downstream code.
+        # Start with NaNs so missing class detections remain explicit.
+        combined_keypoints = np.full((KEYPOINT_COUNT, 3), np.nan, dtype=float)
+
+        def _best_class_index(class_id: int) -> int | None:
+            class_indices = np.where(cls == class_id)[0]
+            if class_indices.size == 0:
+                return None
+            best_local = class_indices[np.argmax(conf[class_indices])]
+            return int(best_local)
+
+        bee_idx = _best_class_index(BEE_CLASS_ID)
+        tubes_idx = _best_class_index(TUBES_CLASS_ID)
+
+        if bee_idx is None and tubes_idx is None:
+            return None
+
+        if bee_idx is not None:
+            bee_kpts = kpt_data[bee_idx]
+            bee_count = min(7, bee_kpts.shape[0], KEYPOINT_COUNT)
+            combined_keypoints[:bee_count] = bee_kpts[:bee_count]
+
+        if tubes_idx is not None:
+            tubes_kpts = kpt_data[tubes_idx]
+            combined_keypoints[7:9] = tubes_kpts[:2]
+
+        return combined_keypoints
 
     def _frame_to_row(
         self,
@@ -171,7 +205,7 @@ class ChoiceAssayPoseProcessor(DataProcessor):
             "frame_start_time": frame_start_time,
         }
 
-        for idx in range(self.dp_config.keypoint_count):
+        for idx in range(KEYPOINT_COUNT):
             keypoint_name = CA_KEYPOINT_NAMES[idx]
             row[f"{keypoint_name}_x"] = float(keypoints[idx, 0])
             row[f"{keypoint_name}_y"] = float(keypoints[idx, 1])
@@ -197,8 +231,7 @@ class ChoiceAssayPoseProcessor(DataProcessor):
                 stream=True,
                 verbose=False,
                 conf=0.25,
-                max_det=1,
-                classes=[0],
+                classes=[0, 1], # Bee, Tubes
                 save=save_markup_video,
                 save_dir=markup_dir,
             )
@@ -209,7 +242,7 @@ class ChoiceAssayPoseProcessor(DataProcessor):
                     if frame_index == 0:
                         self._log_first_frame_diagnostics(result, video_path)
 
-                    keypoints = self._select_keypoints(result, self.dp_config.keypoint_count)
+                    keypoints = self._select_keypoints(result)
 
                     # Only save a row if the model produced a result for the frame.
                     # If the model fails to produce a result, we skip saving data for that frame.

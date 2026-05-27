@@ -56,6 +56,7 @@ WIFI_CLIENTS: list[WifiClient] = [
     WifiClient("bee-ops", 100, "abcdabcd"),
     WifiClient(ssid="GNX103510", pw="XQSX3SSAPSPH", priority=70),
     WifiClient(ssid="choice_assay", pw="choice_assay", priority=90),
+    WifiClient(ssid="bee-ops-eero", pw="abcdabcd", priority=80),
 ]
 
 

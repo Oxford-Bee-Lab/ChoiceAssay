@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
+from time import perf_counter
 
 import numpy as np
 import pandas as pd
@@ -80,6 +81,7 @@ class ChoiceAssayPoseProcessor(DataProcessor):
         super().__init__(config, sensor_index)
         self.dp_config = config
         self._model_diagnostics_logged = False
+        self._model: YOLO | None = None
 
     def _log_model_diagnostics(self, model: YOLO) -> None:
         if self._model_diagnostics_logged:
@@ -126,6 +128,9 @@ class ChoiceAssayPoseProcessor(DataProcessor):
         )
 
     def _load_model(self) -> YOLO:
+        if self._model is not None:
+            return self._model
+
         model_path = self.dp_config.model_path
         if not model_path.exists():
             msg = f"Pose model not found at {model_path}"
@@ -134,7 +139,7 @@ class ChoiceAssayPoseProcessor(DataProcessor):
         model = YOLO(model_path)
 
         self._log_model_diagnostics(model)
-
+        self._model = model
         return model
 
     def _select_keypoints(self, result: Results) -> np.ndarray | None:
@@ -214,6 +219,7 @@ class ChoiceAssayPoseProcessor(DataProcessor):
 
     def _process_video_file(self, video_path: Path) -> pd.DataFrame:
         try:
+            t0 = perf_counter()
             parts = file_naming.parse_record_filename(video_path)
             start_time: datetime = parts.get(api.RECORD_ID.TIMESTAMP.value, api.utc_now())
             end_time: datetime = parts.get(api.RECORD_ID.END_TIME.value, start_time)
@@ -225,20 +231,29 @@ class ChoiceAssayPoseProcessor(DataProcessor):
             )
             markup_dir = root_cfg.TMP_DIR / "YOLO"
 
+            t_model_start = perf_counter()
             model = self._load_model()
+            t_model_done = perf_counter()
+
+            t_predict_start = perf_counter()
             results = model(
                 video_path,
                 stream=True,
                 verbose=False,
                 conf=0.25,
                 classes=[0, 1], # Bee, Tubes
+                imgsz=416,
                 save=save_markup_video,
                 save_dir=markup_dir,
             )
+            t_predict_setup_done = perf_counter()
 
             # Process the YOLO results frame by frame as they are generated
+            frames_seen = 0
+            frames_with_keypoints = 0
             try:
                 for frame_index, result in enumerate(results):
+                    frames_seen += 1
                     if frame_index == 0:
                         self._log_first_frame_diagnostics(result, video_path)
 
@@ -247,6 +262,7 @@ class ChoiceAssayPoseProcessor(DataProcessor):
                     # Only save a row if the model produced a result for the frame.
                     # If the model fails to produce a result, we skip saving data for that frame.
                     if keypoints is not None:
+                        frames_with_keypoints += 1
                         row = self._frame_to_row(
                             frame_index,
                             keypoints,
@@ -265,7 +281,10 @@ class ChoiceAssayPoseProcessor(DataProcessor):
                 )
                 raise
 
+            t_stream_done = perf_counter()
+
             if save_markup_video:
+                logger.info("Saving marked-up video for %s to %s", video_path, markup_dir)
                 marked_up_video_path = markup_dir / (video_path.stem + ".avi")
                 self.save_recording(
                     stream_index=CA_MARKED_UP_VID_STREAM_INDEX,
@@ -275,7 +294,29 @@ class ChoiceAssayPoseProcessor(DataProcessor):
                     override_sampling=api.OVERRIDE.SAVE,
                 )
 
-            return pd.DataFrame(rows)
+            t_markup_done = perf_counter()
+            output_df = pd.DataFrame(rows)
+            t_df_done = perf_counter()
+
+            logger.info(
+                (
+                    "Pose timings: video=%s model_load=%.3fs predict_setup=%.3fs "
+                    "stream_iter=%.3fs dataframe=%.3fs markup_save=%.3fs total=%.3fs "
+                    "frames=%d rows=%d rows_per_frame=%.3f"
+                ),
+                video_path,
+                t_model_done - t_model_start,
+                t_predict_setup_done - t_predict_start,
+                t_stream_done - t_predict_setup_done,
+                t_df_done - t_markup_done,
+                t_markup_done - t_stream_done,
+                t_df_done - t0,
+                frames_seen,
+                frames_with_keypoints,
+                (frames_with_keypoints / frames_seen) if frames_seen else 0.0,
+            )
+
+            return output_df
         except Exception:
             logger.exception("Error processing video file %s", video_path)
             return pd.DataFrame()

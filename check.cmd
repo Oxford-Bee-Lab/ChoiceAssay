@@ -2,8 +2,8 @@
 @echo off
 cls
 call .venv\Scripts\activate.bat
-ruff format src test
-ruff check --fix src test
+ruff format --exclude "*.ipynb" src test
+ruff check --fix --exclude "*.ipynb" src test
 ty check
 pyright
 

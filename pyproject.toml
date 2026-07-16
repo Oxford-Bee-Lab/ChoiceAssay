@@ -13,6 +13,7 @@ dependencies = [
     "torchvision==0.21",
     "ultralytics==8.4.21",
     "pip",
+    "seaborn",
 ]
 
 [project.optional-dependencies]
@@ -252,6 +253,6 @@ reportUnknownVariableType = "none"
 ##############################################################################################################
 [tool.ty.src]
 include = ["src", "tests"]
-exclude = ["src/choice_assay/my_choice_assay_sensor.py"]
+exclude = ["src/choice_assay/my_choice_assay_sensor.py", "**/*.ipynb"]
 [tool.ty.environment]
 python-version = "3.11"

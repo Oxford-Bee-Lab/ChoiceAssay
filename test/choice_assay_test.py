@@ -3,6 +3,7 @@ from dataclasses import replace
 from pathlib import Path
 from time import sleep
 
+import pandas as pd
 import pytest
 from expidite_rpi import DeviceCfg, DPtree, RpiCore, Stream, api
 from expidite_rpi import configuration as root_cfg
@@ -155,8 +156,23 @@ class Test_choice_assay:
         ],
     )
     @pytest.mark.unittest
-    def test_choice_assay(self, test_input: dict[str, str], rpi_emulator: RpiEmulator) -> None:
+    def test_choice_assay(
+        self,
+        test_input: dict[str, str],
+        rpi_emulator: RpiEmulator,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         src_vid = test_input["src_vid"]
+        captured_pose_dataframes: list[pd.DataFrame] = []
+
+        original_save_data = ChoiceAssayPoseProcessor.save_data
+
+        def capture_save_data(self, stream_index: int, sensor_data: pd.DataFrame) -> None:
+            if stream_index == CA_XY_STREAM_INDEX:
+                captured_pose_dataframes.append(sensor_data.copy())
+            original_save_data(self, stream_index, sensor_data)
+
+        monkeypatch.setattr(ChoiceAssayPoseProcessor, "save_data", capture_save_data)
 
         # Set the file to be fed into the choice assay device
         rpi_emulator.set_recordings(
@@ -197,3 +213,16 @@ class Test_choice_assay:
                 "V3_CAVIDEO_*": rpi_emulator.ONE_OR_MORE,
             },
         )
+
+        assert captured_pose_dataframes, "Expected CAPOSE data to be saved"
+
+        pose_df = pd.concat(captured_pose_dataframes, ignore_index=True)
+        assert not pose_df.empty, "Expected CAPOSE dataframe to contain at least one row"
+
+        bee_columns = [f"{name}_{suffix}" for name in CA_KEYPOINT_NAMES[:7] for suffix in ["x", "y", "conf"]]
+        tube_columns = [f"{name}_{suffix}" for name in CA_KEYPOINT_NAMES[7:] for suffix in ["x", "y", "conf"]]
+
+        assert set(bee_columns).issubset(pose_df.columns)
+        assert set(tube_columns).issubset(pose_df.columns)
+        assert pose_df[bee_columns].notna().any(axis=1).any(), "Expected at least one row with bee keypoints"
+        assert pose_df[tube_columns].notna().any(axis=1).any(), "Expected at least one tube field value"

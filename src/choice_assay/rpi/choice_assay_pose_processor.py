@@ -274,7 +274,7 @@ class ChoiceAssayPoseProcessor(DataProcessor):
 
         return row
 
-    def _process_video_file(self, video_path: Path) -> pd.DataFrame:
+    def process_video_file(self, video_path: Path) -> pd.DataFrame:
         try:
             t0 = perf_counter()
             parts = file_naming.parse_record_filename(video_path)
@@ -391,7 +391,7 @@ class ChoiceAssayPoseProcessor(DataProcessor):
 
         for f in files:
             try:
-                result = self._process_video_file(f)
+                result = self.process_video_file(f)
                 results.append(result)
             except Exception:
                 logger.exception(f"{root_cfg.RAISE_WARN()}Exception occurred processing video {f!s}")

@@ -11,6 +11,8 @@ from time import perf_counter
 
 import pandas as pd
 
+from expidite_rpi.core import file_naming, api
+
 from choice_assay.rpi.choice_assay_pose_processor import (
     DEFAULT_CHOICE_ASSAY_POSE_PROCESSOR_CFG,
     ChoiceAssayPoseProcessor,
@@ -22,7 +24,7 @@ CONTAINER_NAME = "expidite-choiceassay-trapcam"
 TYPE_ID = "CAVIDEO"
 PREFIX = f"V3_{TYPE_ID}_"
 SUFFIX = ".mp4"
-OUTPUT_PREFIX_LEN = len("V3_CAVIDEO_d83add1a11c5_00_00_20260317")
+#OUTPUT_PREFIX_LEN = len("V3_CAVIDEO_d83add1a11c5_00_00_20260317")
 DEFAULT_LOCAL_CACHE_DIRNAME = "choice_assay_video_cache"
 DEFAULT_PREFETCH_AHEAD = 6
 DEFAULT_PREFETCH_WAIT_LOG_INTERVAL_SECONDS = 30.0
@@ -98,15 +100,43 @@ def save_results_to_csv(
     results: pd.DataFrame,
     output_dir: Path,
     video_fname: str,
-    output_prefix_len: int,
 ) -> int:
-    """Save the results to a CSV file and return the number of rows written."""
+    """Save the results to a CSV file and return the number of rows written.
+
+    We need to do 2 specific bits of mapping:
+    - we need to match the output from exipidte, so we need to add the appropriate index columns
+    - we need to match the filename, mapping from a prefix of "V3_CAVIDEO_d83add1a11d5_00_00_20260624" to
+      "V3_CAPOSE_d83add1a11d5_20260624".
+    """
     if results.empty:
         print("No results to save.")
         return 0
 
-    output_csv = output_dir / f"{video_fname[:output_prefix_len]}.csv"
+    parts = file_naming.parse_record_filename(video_fname)
+    timestamp: datetime = parts["timestamp"]
+    journal_fname = f"V3_CAPOSE_{parts['device_id']}_{timestamp.strftime('%Y%m%d')}.csv"
+
+    output_csv = output_dir / f"{journal_fname}.csv"
     output_csv.parent.mkdir(parents=True, exist_ok=True)
+
+    # Add the index columns to match the expected output format
+    # We add columns for all of api.ALL_RECORD_ID_FIELDS
+    for field in api.ALL_RECORD_ID_FIELDS:
+        if field not in results.columns:
+            if field == api.RECORD_ID.VERSION.value:
+                results[field] = "V3"
+            elif field == api.RECORD_ID.DATA_TYPE_ID.value:
+                results[field] = "CAPOSE"
+            elif field == api.RECORD_ID.SENSOR_INDEX.value:
+                results[field] = 0
+            elif field == api.RECORD_ID.STREAM_INDEX.value:
+                results[field] = 0
+            elif field == api.RECORD_ID.DEVICE_ID.value:
+                results[field] = parts["device_id"]
+            elif field == api.RECORD_ID.TIMESTAMP.value:
+                results[field] = api.utc_to_iso_str(timestamp)
+            else:
+                results[field] = None
 
     if output_csv.exists():
         results.to_csv(output_csv, mode="a", header=False, index=False)
@@ -289,7 +319,7 @@ def run_rerun_processing(
                 df = processor.process_video_file(local_video)
                 inference_seconds = perf_counter() - t_infer_start
                 inference_seconds_total += inference_seconds
-                rows_saved = save_results_to_csv(df, output_dir, remote_video.name, OUTPUT_PREFIX_LEN)
+                rows_saved = save_results_to_csv(df, output_dir, remote_video.name)
                 status = "processed_with_detection" if rows_saved > 0 else "processed_no_detection"
                 record_video_attempt(
                     processed_log_path,

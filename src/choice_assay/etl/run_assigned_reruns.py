@@ -62,8 +62,8 @@ def parse_args() -> argparse.Namespace:
     nas_root, _ = detect_default_roots()
     default_video_src_dir = nas_root / "azure" / "choice_assay" / "expidite-choiceassay-trapcam"
     default_output_dir = nas_root / "results" / "choice_assay_rerun"
-    default_files_list = Path(__file__).with_name("files_to_process.csv")
-    default_assignments = Path(__file__).with_name("assignments.csv")
+    default_files_list = default_output_dir / "files_list.csv"
+    default_assignments = default_output_dir / "assignments.csv"
 
     parser = argparse.ArgumentParser(
         description=(

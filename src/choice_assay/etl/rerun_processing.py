@@ -10,8 +10,7 @@ from pathlib import Path
 from time import perf_counter
 
 import pandas as pd
-
-from expidite_rpi.core import file_naming, api
+from expidite_rpi.core import api, file_naming
 
 from choice_assay.rpi.choice_assay_pose_processor import (
     DEFAULT_CHOICE_ASSAY_POSE_PROCESSOR_CFG,
@@ -19,12 +18,11 @@ from choice_assay.rpi.choice_assay_pose_processor import (
     ChoiceAssayPoseProcessorCfg,
 )
 
-
 CONTAINER_NAME = "expidite-choiceassay-trapcam"
 TYPE_ID = "CAVIDEO"
 PREFIX = f"V3_{TYPE_ID}_"
 SUFFIX = ".mp4"
-#OUTPUT_PREFIX_LEN = len("V3_CAVIDEO_d83add1a11c5_00_00_20260317")
+# OUTPUT_PREFIX_LEN = len("V3_CAVIDEO_d83add1a11c5_00_00_20260317")
 DEFAULT_LOCAL_CACHE_DIRNAME = "choice_assay_video_cache"
 DEFAULT_PREFETCH_AHEAD = 6
 DEFAULT_PREFETCH_WAIT_LOG_INTERVAL_SECONDS = 30.0
@@ -54,9 +52,7 @@ def list_processed_videos(processed_log_path: Path) -> set[str]:
     df = pd.read_csv(processed_log_path)
     required_cols = {"video_filename", "status"}
     if not required_cols.issubset(df.columns):
-        print(
-            f"Warning: {processed_log_path} missing required columns {required_cols}; ignoring log."
-        )
+        print(f"Warning: {processed_log_path} missing required columns {required_cols}; ignoring log.")
         return set()
 
     terminal_statuses = {
@@ -127,9 +123,7 @@ def save_results_to_csv(
                 results[field] = "V3"
             elif field == api.RECORD_ID.DATA_TYPE_ID.value:
                 results[field] = "CAPOSE"
-            elif field == api.RECORD_ID.SENSOR_INDEX.value:
-                results[field] = 0
-            elif field == api.RECORD_ID.STREAM_INDEX.value:
+            elif field in {api.RECORD_ID.SENSOR_INDEX.value, api.RECORD_ID.STREAM_INDEX.value}:
                 results[field] = 0
             elif field == api.RECORD_ID.DEVICE_ID.value:
                 results[field] = parts["device_id"]
@@ -157,7 +151,8 @@ def create_cfg() -> ChoiceAssayPoseProcessorCfg:
 def stage_video_to_local(video_path: Path, local_cache_dir: Path) -> tuple[Path, float, int, int]:
     """Copy video from NAS to local cache and return path, copy_seconds, remote_size, local_size."""
     if not video_path.exists():
-        raise FileNotFoundError(f"Remote video not found: {video_path}")
+        msg = f"Remote video not found: {video_path}"
+        raise FileNotFoundError(msg)
 
     local_path = local_cache_dir / video_path.name
     remote_size = video_path.stat().st_size
@@ -173,8 +168,18 @@ def run_rerun_processing(
     files_to_process: Path,
     video_src_dir: Path,
     output_dir: Path,
+    file_filter: str | None = None,
 ) -> dict[str, int]:
-    """Run processing over all listed videos with JIT prefetch staging."""
+    """Run processing over all listed videos with JIT prefetch staging.
+
+    Args:
+        files_to_process: Path to a CSV or text file containing one video filename per line.
+        video_src_dir: Directory containing the source video files.
+        output_dir: Directory to save processed results.
+        file_filter: Optional substring to filter video filenames.  Do not use wild cards.
+        This is a simple substring match.
+
+    """
     _, tmp_root = detect_default_roots()
     local_cache_dir = tmp_root / DEFAULT_LOCAL_CACHE_DIRNAME
     prefetch_ahead = DEFAULT_PREFETCH_AHEAD
@@ -189,11 +194,11 @@ def run_rerun_processing(
     processed_videos = set(list_processed_videos(processed_log_path))
     raw_file_list = set(pd.read_csv(files_to_process, header=None)[0].to_list())
     videos_to_process = sorted(raw_file_list - processed_videos)
+    if file_filter is not None:
+        videos_to_process = [fname for fname in videos_to_process if file_filter in fname]
     videos_to_process = [video_src_dir / fname for fname in videos_to_process]
 
-    print(
-        f"Found {len(videos_to_process)} new videos to process. {len(processed_videos)} already handled."
-    )
+    print(f"Found {len(videos_to_process)} new videos to process. {len(processed_videos)} already handled.")
     print(f"JIT local cache directory: {local_cache_dir.resolve()}")
     print(f"Prefetch ahead: {prefetch_ahead} files")
     print(f"Processing log: {processed_log_path.resolve()}")
@@ -260,7 +265,7 @@ def run_rerun_processing(
                     )
                     prefetch_wait_seconds_total += perf_counter() - wait_start
                     break
-                except TimeoutError:
+                except TimeoutError as err:
                     wait_so_far = perf_counter() - wait_start
                     snapshot = prefetch_queue_snapshot(prefetch_futures, prefetch_submitted_at)
                     print(
@@ -271,9 +276,11 @@ def run_rerun_processing(
                         prefetch_hard_timeout_seconds is not None
                         and wait_so_far > prefetch_hard_timeout_seconds
                     ):
-                        raise TimeoutError(
-                            f"Prefetch wait exceeded {prefetch_hard_timeout_seconds}s for {remote_video}"
+                        msg = (
+                            f"Prefetch wait exceeded {prefetch_hard_timeout_seconds}s for "
+                            f"{remote_video.name} | queue={len(prefetch_futures)} [{snapshot}]"
                         )
+                        raise TimeoutError(msg) from err
                 except FileNotFoundError as err:
                     prefetch_wait_seconds_total += perf_counter() - wait_start
                     skipped_missing_prefetch += 1
@@ -385,9 +392,7 @@ def parse_args() -> argparse.Namespace:
     default_output_dir = nas_root / "results" / "choice_assay_rerun"
     default_files_list = Path(__file__).with_name("files_to_process.csv")
 
-    parser = argparse.ArgumentParser(
-        description="Re-run choice assay video processing in standalone mode."
-    )
+    parser = argparse.ArgumentParser(description="Re-run choice assay video processing in standalone mode.")
     parser.add_argument(
         "--files-to-process",
         type=Path,
@@ -396,20 +401,25 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--video-src-dir", type=Path, default=default_video_src_dir)
     parser.add_argument("--output-dir", type=Path, default=default_output_dir)
+    parser.add_argument(
+        "--file-filter",
+        type=str,
+        default=None,
+        help="Optional substring to filter video filenames.  Do not use wild cards.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
 
-    print(
-        f"Processing {PREFIX} files from '{CONTAINER_NAME}' to {args.video_src_dir.resolve()}"
-    )
+    print(f"Processing {PREFIX} files from '{CONTAINER_NAME}' to {args.video_src_dir.resolve()}")
 
     run_rerun_processing(
         files_to_process=args.files_to_process,
         video_src_dir=args.video_src_dir,
         output_dir=args.output_dir,
+        file_filter=args.file_filter
     )
 
 

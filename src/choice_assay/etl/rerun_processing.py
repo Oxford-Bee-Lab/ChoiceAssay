@@ -34,7 +34,7 @@ def detect_default_roots() -> tuple[Path, Path]:
     """Return default NAS and temp roots based on host platform."""
     running_on_linux = "Linux" in platform.platform()
     if running_on_linux:
-        return Path("/bee-ops-disk/"), Path("/tmp/")
+        return Path("~/bee-ops-disk/").expanduser(), Path("/tmp/")
 
     nas_root = Path("B://")
     tmp_root = Path.home() / "AppData" / "Local" / "Temp"

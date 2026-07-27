@@ -14,7 +14,8 @@ ml_model/yolo11s-pose.pt
 ml_model/labeled-data/bee_pose_yolo_sw_updated/labels/train.cache
 /ml_model/downloadsOld
 /ml_model/april_images
-/src/choice_assay/etl/downloads
 ml_model/labeled-data/semisupervised updates.zip
 src/choice_assay/etl/new_files_list.csv
 src/choice_assay/etl/old_files_list.csv
+/src/choice_assay/etl/downloads/src_journals
+/src/choice_assay/etl/downloads/src_journals_old

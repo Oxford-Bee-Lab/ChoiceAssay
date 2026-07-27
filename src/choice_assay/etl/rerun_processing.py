@@ -189,7 +189,7 @@ def run_rerun_processing(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     local_cache_dir.mkdir(parents=True, exist_ok=True)
-    processed_log_path = output_dir / "processed_videos_log.csv"
+    processed_log_path = output_dir / f"processed_videos_log_{file_filter or 'all'}.csv"
 
     processed_videos = set(list_processed_videos(processed_log_path))
     raw_file_list = set(pd.read_csv(files_to_process, header=None)[0].to_list())

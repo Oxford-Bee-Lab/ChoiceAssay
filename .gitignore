@@ -19,3 +19,4 @@ src/choice_assay/etl/new_files_list.csv
 src/choice_assay/etl/old_files_list.csv
 /src/choice_assay/etl/downloads/src_journals
 /src/choice_assay/etl/downloads/src_journals_old
+/src/choice_assay/etl/downloads/src_journals_new

@@ -112,7 +112,7 @@ def save_results_to_csv(
     timestamp: datetime = parts["timestamp"]
     journal_fname = f"V3_CAPOSE_{parts['device_id']}_{timestamp.strftime('%Y%m%d')}.csv"
 
-    output_csv = output_dir / f"{journal_fname}.csv"
+    output_csv = output_dir / journal_fname
     output_csv.parent.mkdir(parents=True, exist_ok=True)
 
     # Add the index columns to match the expected output format
@@ -193,6 +193,8 @@ def run_rerun_processing(
 
     processed_videos = set(list_processed_videos(processed_log_path))
     raw_file_list = set(pd.read_csv(files_to_process, header=None)[0].to_list())
+    raw_file_list = {Path(fname).name for fname in raw_file_list}
+
     videos_to_process = sorted(raw_file_list - processed_videos)
     if file_filter is not None:
         videos_to_process = [fname for fname in videos_to_process if file_filter in fname]
